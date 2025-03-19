@@ -1,0 +1,94 @@
+version: v1.0
+name: "\U0001F439 Go CI Pipeline"
+agent:
+  machine:
+    type: s1-kubernetes
+    os_image: ''
+  containers:
+    - name: main
+      image: 'golang:1.23'
+fail_fast:
+  stop:
+    when: branch = 'main'
+auto_cancel:
+  running:
+    when: branch != 'main'
+  queued:
+    when: branch = 'main'
+global_job_config:
+  prologue:
+    commands:
+      - checkout
+      - 'export PATH=$PATH:/usr/local/go/bin:$(go env GOPATH)/bin'
+      - 'echo "Updated PATH: $PATH"'
+      - which go || echo "Go not found"
+      - go version || echo "failed"
+      - cache restore
+      - go mod download
+blocks:
+  - name: "\U0001F6E0 Setup and Cache"
+    dependencies: []
+    task:
+      jobs:
+        - name: Install Dependencies
+          commands:
+            - go install golang.org/x/lint/golint@latest
+            - go install honnef.co/go/tools/cmd/staticcheck@latest
+            - cache store
+  - name: "\U0001F50D Code Quality"
+    dependencies:
+      - "\U0001F6E0 Setup and Cache"
+    task:
+      jobs:
+        - name: Lint and Vet
+          commands:
+            - golint ./...
+            - go vet ./...
+            - staticcheck ./...
+            - go fmt ./...
+  - name: "\U0001F510 Security Checks"
+    dependencies:
+      - "\U0001F6E0 Setup and Cache"
+    task:
+      jobs:
+        - name: Security Scan
+          commands:
+            - go install golang.org/x/vuln/cmd/govulncheck@latest
+            - govulncheck ./...
+  - name: "\U0001F9EA Test Suite"
+    dependencies:
+      - "\U0001F6E0 Setup and Cache"
+    task:
+      env_vars:
+        - name: GO_TEST_REPORT
+          value: test-results.xml
+      jobs:
+        - name: "\U0001F7E2 Go Test"
+          parallelism: 4
+          commands:
+            - go install gotest.tools/gotestsum@latest
+            - 'export PATH=$PATH:$(go env GOPATH)/bin'
+            - which gotestsum || echo "gotestsum not found after install"
+            - gotestsum --junitfile=$GO_TEST_REPORT -- -coverprofile=coverage.txt -covermode=atomic ./...
+            - go tool cover -func=coverage.txt
+      epilogue:
+        always:
+          commands:
+            - test-results publish $GO_TEST_REPORT
+  - name: "\U0001F4E6 Build"
+    dependencies:
+      - "\U0001F50D Code Quality"
+      - "\U0001F510 Security Checks"
+      - "\U0001F9EA Test Suite"
+    task:
+      jobs:
+        - name: "\U0001F528 Build Binary"
+          commands:
+            - GOOS=linux GOARCH=amd64 go build -o bin/app
+            - GOOS=darwin GOARCH=amd64 go build -o bin/app-darwin
+after_pipeline:
+  task:
+    jobs:
+      - name: "Merge Reports \U0001F4CA"
+        commands:
+          - test-results gen-pipeline-report
