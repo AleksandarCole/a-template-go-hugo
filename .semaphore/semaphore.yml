@@ -23,6 +23,7 @@ global_job_config:
       - 'export PATH=$PATH:/usr/local/go/bin:$(go env GOPATH)/bin'
       - cache restore
       - go mod download
+      - which go
 blocks:
   - name: "\U0001F6E0 Setup and Cache"
     dependencies: []
@@ -53,6 +54,7 @@ blocks:
           commands:
             - echo $(go env GOPATH)/bin
             - ls $(go env GOPATH)/bin | grep revive
+            - which revive
   - name: "\U0001F510 Security Checks"
     dependencies:
       - "\U0001F6E0 Setup and Cache"
