@@ -19,6 +19,7 @@ global_job_config:
   prologue:
     commands:
       - checkout
+      - 'export PATH=$PATH:/usr/local/go/bin:/go/bin'
       - 'export PATH=$PATH:/usr/local/go/bin:$(go env GOPATH)/bin'
       - cache restore
       - go mod download
