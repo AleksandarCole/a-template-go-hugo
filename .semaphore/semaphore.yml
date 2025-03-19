@@ -43,6 +43,10 @@ blocks:
             - go vet ./...
             - gosec ./...
             - go fmt ./...
+      prologue:
+        commands:
+          - go install github.com/securego/gosec/v2/cmd/gosec@latest
+          - go install github.com/mgechev/revive@latest
   - name: "\U0001F510 Security Checks"
     dependencies:
       - "\U0001F6E0 Setup and Cache"
